@@ -1,57 +1,54 @@
-import json
-import torch
-from transformers import GPT2LMHeadModel, GPT2Tokenizer
-from store_in_faiss import retrieve_documents, create_faiss_index
-from utils import log_chat_history  # Make sure this function exists
-
-# Load GPT-2 model and tokenizer
-gpt2_model = GPT2LMHeadModel.from_pretrained('gpt2')
-gpt2_tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
-
-# Set padding token if not defined
-if gpt2_tokenizer.pad_token is None:
-    gpt2_tokenizer.pad_token = gpt2_tokenizer.eos_token
-
-def load_text_chunks(file_path):
-    with open(file_path, 'r', encoding='utf-8') as file:
-        text_chunks = file.read().strip().split('\n---\n')
-    return text_chunks
-
-def generate_response(input_text):
-    inputs = gpt2_tokenizer.encode(input_text, return_tensors="pt", padding=True, truncation=True)
-    outputs = gpt2_model.generate(inputs, max_length=150, pad_token_id=gpt2_tokenizer.eos_token_id)
-    generated_text = gpt2_tokenizer.decode(outputs[0], skip_special_tokens=True)
-    return generated_text
-
-def chatbot_response(user_input, index, text_chunks):
-    responses = retrieve_documents(user_input, index, text_chunks)
-
-    # Flatten the list of responses if necessary
-    if isinstance(responses[0], list):
-        # If the first response is a list, flatten the entire list
-        context = " ".join(item for sublist in responses for item in sublist)
-    else:
-        context = " ".join(responses) if responses else "No relevant information found."
-
-    return generate_response(context)
+import numpy as np
+import faiss
+from sentence_transformers import SentenceTransformer
 
 
-if __name__ == "__main__":
-    print("Chatbot is ready! Type 'exit' to end the session.")
-    session_title = input("Enter session title: ")
-    chat_history = []
+class Chatbot:
 
-    text_chunks = load_text_chunks('data/text_chunks.txt')
-    index, embeddings = create_faiss_index(text_chunks)
+    def __init__(self, model_name='all-MiniLM-L6-v2'):
+        self.model = SentenceTransformer(model_name)
+        self.index = None
+        self.text_chunks = []
 
-    while True:
-        user_input = input("You: ")
-        if user_input.lower() == 'exit':
-            break
+    def load_text_chunks(self, file_path):
+        """Load text chunks from a file."""
+        with open(file_path, 'r', encoding='utf-8') as file:
+            self.text_chunks = file.read().strip().split('\n---\n')
+
+    def create_faiss_index(self):
+        """Generate embeddings and create a FAISS index."""
+        embeddings = self.model.encode(self.text_chunks)
+        embeddings = np.array(embeddings).astype('float32')
+        dimension = embeddings.shape[1]
+        self.index = faiss.IndexFlatL2(dimension)
+        self.index.add(embeddings)
+
+    def search_index(self, query_vector, k=2):
+        """Search the FAISS index for nearest neighbors."""
+        query_vector = query_vector.reshape(1, -1)
+        distances, indices = self.index.search(query_vector, k)
+        return indices, distances
+
+    def retrieve_documents(self, user_input, k=2):
+        """Retrieve relevant documents based on user input."""
+        query_vector = self.model.encode([user_input]).astype('float32')
+        indices, _ = self.search_index(query_vector, k)
         
-        response = chatbot_response(user_input, index, text_chunks)
-        chat_history.append({"User": user_input, "Chatbot": response})
-        print(f"Chatbot: {response}")
+        # Retrieve document text and create citations
+        responses = [self.text_chunks[i] for i in indices[0]]
+        citations = [f"Document {i+1}" for i in indices[0]]  # Citation as Document 1, Document 2, etc.
 
-    log_chat_history(session_title, chat_history)
-    print("Chat history logged.")
+        return responses, citations
+
+    def get_response(self, user_input):
+        """Generate a response from the chatbot, including citations."""
+        responses, citations = self.retrieve_documents(user_input)
+        
+        if responses:
+            # Format responses with citations
+            response_text = "\n\n".join([f"{response}\n(Citation: {citation})" for response, citation in zip(responses, citations)])
+            return response_text
+        else:
+            return "No relevant information found."
+        
+    
