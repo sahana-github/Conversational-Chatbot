@@ -5,6 +5,8 @@ This is a **Conversational QA System** built with Streamlit and a **Retrieval-Au
 2. **PDF-based QA**: Answering questions based on content extracted and indexed from PDFs.
 
 The system utilizes **sentence embeddings** and **FAISS** for efficient retrieval and generation of answers.
+![image](https://github.com/user-attachments/assets/83137fec-e2a5-47ab-b99e-9a13af17a8ca)
+
 
 ## Table of Contents
 1. [Technologies Used](#technologies-used)
