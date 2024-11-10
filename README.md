@@ -111,3 +111,8 @@ The sidebar displays the conversation history, citations (with page numbers), an
 **Conclusions**
 
 This project demonstrates how to build a Conversational QA System that can operate in two modes: answering general questions and answering based on content from uploaded PDFs. The use of FAISS for fast, scalable similarity search and Sentence-Transformers for embedding sentences allows the system to efficiently process and generate detailed answers.
+
+![image](https://github.com/user-attachments/assets/1fc9ed46-4cb3-4ce3-994e-9f2109e73a20)
+
+
+This README file is structured to explain the project clearly, both in terms of functionality and implementation, which should help you in your interview presentation. You can copy and paste this into your `README.md` file for your project.
